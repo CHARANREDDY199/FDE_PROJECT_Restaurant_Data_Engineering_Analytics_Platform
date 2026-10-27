@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: restaurant_postgres
+    environment:
+      POSTGRES_DB: restaurant_analytics
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5034:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: restaurant_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: restaurant_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9093:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: restaurant_api
+    depends_on:
+      - postgres
+    environment:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_DB: restaurant_analytics
+      PG_USER: postgres
+      PG_PASSWORD: postgres
+    ports:
+      - "8000:8000"
+
+volumes:
+  pg_data:
